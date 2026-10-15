@@ -1,0 +1,81 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Playfair+Display:ital,wght@0,500;1,500&display=swap");
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "DM Sans", sans-serif;
+  --font-serif: "Playfair Display", serif;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    margin: 0;
+    background: #f5f2eb;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  button,
+  a,
+  select {
+    cursor: pointer;
+  }
+
+  ::selection {
+    background: #c9a96e;
+    color: #10211f;
+  }
+}
+
+@layer components {
+  .eyebrow {
+    color: #8d723e;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.19em;
+    text-transform: uppercase;
+  }
+
+  .section-title {
+    max-width: 42rem;
+    font-family: var(--font-serif);
+    font-size: clamp(2.6rem, 5vw, 4.3rem);
+    line-height: 1.04;
+    letter-spacing: -0.025em;
+  }
+
+  .field-label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    color: #31413e;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .field-input {
+    width: 100%;
+    border: 1px solid #d5d0c5;
+    border-radius: 0;
+    background: transparent;
+    padding: 0.85rem 0.9rem;
+    color: #152523;
+    font-family: var(--font-sans);
+    font-size: 0.875rem;
+    font-weight: 400;
+    outline: none;
+    transition: border-color 180ms ease, background-color 180ms ease;
+  }
+
+  .field-input::placeholder {
+    color: #979c99;
+  }
+
+  .field-input:focus {
+    border-color: #9f7e43;
+    background: #fffdf8;
+  }
+}
