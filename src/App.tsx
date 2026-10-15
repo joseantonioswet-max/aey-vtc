@@ -215,8 +215,7 @@ function ArrowIcon() {
   );
 }
 
-const WHATSAPP_URL = "https://wa.me/34675608207?text=Hola%2C%20quiero%20solicitar%20un%20servicio%20VTC.%20Detalles%20del%20trayecto%3A%20Origen%20y%20destino%3A%20...%20Fecha%3A%20...%20Hora%3A%20...";
-const HERO_IMAGE =
+const WHATSAPP_URL = "https://wa.me/34675608207?text=Hola%2C%20quiero%20solicitar%20un%20servicio%20VTC.%20Me%20gustar%C3%ADa%20reservar%20con%20los%20siguientes%20detalles%3A%0A%0A%F0%9F%93%85%20Fecha%3A%20%0A%F0%9F%95%90%20Hora%3A%20%0A%F0%9F%93%8D%20Origen%3A%20%0A%F0%9F%8F%81%20Destino%3A%20%0A%F0%9F%91%A5%20Pasajeros%3A%20%0A%0A%C2%A1Gracias!";
   "https://images.unsplash.com/photo-1574556132230-13f004acffda?crop=entropy&cs=tinysrgb&fit=crop&fm=jpg&q=88&w=1800";
 
 export default function App() {
