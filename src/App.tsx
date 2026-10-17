@@ -262,7 +262,7 @@ export default function App() {
           routingControl = L.Routing.control({
             waypoints: waypoints,
             routeWhileDragging: false,
-            createMarker: function() { return null; },
+            createMarker: function(): null { return null; },
           }).addTo(map);
           
           routingControl.on('routesfound', (e: any) => {
