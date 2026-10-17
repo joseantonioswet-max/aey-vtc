@@ -1,6 +1,7 @@
 import { FormEvent, ReactNode, useState, useEffect } from "react";
 import L from "leaflet";
 import "leaflet-routing-machine";
+import { supabase } from './supabase';
 
 type Language = "es" | "en";
 
@@ -282,40 +283,52 @@ export default function App() {
     }
   }, []);
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const form = event.currentTarget;
-    const data = Object.fromEntries(new FormData(form).entries());
-    const endpoint = import.meta.env.VITE_REQUEST_ENDPOINT as string | undefined;
-    setFormState("sending");
+const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const formData = new FormData(form);
+  const data = Object.fromEntries(formData.entries());
 
-    if (endpoint) {
-      try {
-        const response = await fetch(endpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(data),
-        });
-        if (!response.ok) throw new Error("Request failed");
-        setFormState("sent");
-        form.reset();
-        return;
-      } catch {
-        setFormState("idle");
-        return;
+  setFormState("sending");
+
+  try {
+    // Limpiamos el número de precio si existe
+    const precioNumerico = estimatedPrice 
+      ? parseFloat(estimatedPrice.replace(" €", "").replace(",", ".")) 
+      : null;
+
+    // Insertamos la reserva en la tabla reservas_vtc
+    const { error } = await supabase.from('reservas_vtc').insert([
+      {
+        nombre: String(data.name || ''),
+        telefono: String(data.phone || ''),
+        email: String(data.email || ''),
+        origen: String(data.origin || ''),
+        destino: String(data.destination || ''),
+        fecha: String(data.date || ''),
+        hora: String(data.time || ''),
+        pasajeros: String(data.passengers || ''),
+        notas: String(data.notes || ''),
+        precio_estimado: precioNumerico,
+        estado: 'pendiente',
+        tipo_reserva: 'web_estandar'
       }
+    ]);
+
+    if (error) {
+      console.error("Error al guardar en Supabase:", error);
+      setFormState("idle");
+      alert("Hubo un error al enviar la solicitud. Por favor, inténtalo de nuevo.");
+      return;
     }
 
-    const subject = encodeURIComponent(`Nueva solicitud VTC · ${String(data.name || "")}`);
-    const body = encodeURIComponent(
-      Object.entries(data)
-        .map(([key, value]) => `${key}: ${String(value)}`)
-        .join("\n") + (estimatedPrice ? `\nPrecio estimado calculada en mapa: ${estimatedPrice}` : "")
-    );
-    window.location.href = `mailto:central@aeyvtc.es?subject=${subject}&body=${body}`;
     setFormState("sent");
     form.reset();
-  };
+  } catch (err) {
+    console.error("Error inesperado:", err);
+    setFormState("idle");
+  }
+};
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#f5f2eb] text-[#152523]">
