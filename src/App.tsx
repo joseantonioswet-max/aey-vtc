@@ -287,38 +287,36 @@ const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
   event.preventDefault();
   const form = event.currentTarget;
   const formData = new FormData(form);
-  const data = Object.fromEntries(formData.entries());
-
+  
   setFormState("sending");
 
-  try {
-    // Limpiamos el número de precio si existe
-    const precioNumerico = estimatedPrice 
-      ? parseFloat(estimatedPrice.replace(" €", "").replace(",", ".")) 
-      : null;
+  // Extraemos los valores del formulario de forma segura
+  const nuevaReserva = {
+    nombre: String(formData.get("name") || ""),
+    telefono: String(formData.get("phone") || ""),
+    email: String(formData.get("email") || ""),
+    origen: String(formData.get("origin") || ""),
+    destino: String(formData.get("destination") || ""),
+    fecha: String(formData.get("date") || ""),
+    hora: String(formData.get("time") || ""),
+    pasajeros: String(formData.get("passengers") || ""),
+    notas: String(formData.get("notes") || ""),
+    precio_estimado: estimatedPrice ? parseFloat(estimatedPrice.replace(" €", "").replace(",", ".")) : null,
+    estado: "pendiente",
+    tipo_reserva: "web_estandar"
+  };
 
-    // Insertamos la reserva en la tabla reservas_vtc
-    const { error } = await supabase.from('reservas_vtc').insert([
-      {
-        nombre: String(data.name || ''),
-        telefono: String(data.phone || ''),
-        email: String(data.email || ''),
-        origen: String(data.origin || ''),
-        destino: String(data.destination || ''),
-        fecha: String(data.date || ''),
-        hora: String(data.time || ''),
-        pasajeros: String(data.passengers || ''),
-        notas: String(data.notes || ''),
-        precio_estimado: precioNumerico,
-        estado: 'pendiente',
-        tipo_reserva: 'web_estandar'
-      }
-    ]);
+  try {
+    // Forzamos la llamada directa al cliente de Supabase asegurando la tabla limpia
+    const client = supabase;
+    const { error } = await client
+      .from("reservas_vtc")
+      .insert([nuevaReserva]);
 
     if (error) {
-      console.error("Error al guardar en Supabase:", error);
+      console.error("Error detallado de Supabase:", error);
       setFormState("idle");
-      alert("Hubo un error al enviar la solicitud. Por favor, inténtalo de nuevo.");
+      alert("Error al guardar la solicitud: " + error.message);
       return;
     }
 
