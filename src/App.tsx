@@ -1,4 +1,6 @@
-import { FormEvent, ReactNode, useState } from "react";
+import { FormEvent, ReactNode, useState, useEffect } from "react";
+import L from "leaflet";
+import "leaflet-routing-machine";
 
 type Language = "es" | "en";
 
@@ -59,7 +61,7 @@ const content = {
     formEyebrow: "Reserva tu VTC",
     formTitle: "¿Dónde quieres que te llevemos?",
     formText:
-      "Envíanos tu solicitud. Nuestra central la revisará y te responderá con disponibilidad y presupuesto.",
+      "Haz clic en el mapa para marcar tu origen y destino, o completa el formulario directamente.",
     labels: {
       name: "Nombre y apellidos",
       phone: "Teléfono",
@@ -75,8 +77,8 @@ const content = {
       name: "Tu nombre",
       phone: "+34 600 000 000",
       email: "nombre@correo.com",
-      origin: "Dirección, hotel o aeropuerto",
-      destination: "¿A dónde vas?",
+      origin: "Haz clic en el mapa o escribe aquí",
+      destination: "Haz clic en el mapa o escribe aquí",
       passengers: "Seleccionar",
       notes: "Vuelo, equipaje, silla infantil...",
     },
@@ -152,7 +154,7 @@ const content = {
     formEyebrow: "Book your VTC",
     formTitle: "Where can we take you?",
     formText:
-      "Send your request. Our central team will review it and reply with availability and a quote.",
+      "Click on the map to set your pickup and dropoff points, or fill out the form directly.",
     labels: {
       name: "Full name",
       phone: "Phone",
@@ -168,8 +170,8 @@ const content = {
       name: "Your name",
       phone: "+34 600 000 000",
       email: "name@email.com",
-      origin: "Address, hotel or airport",
-      destination: "Where are you going?",
+      origin: "Click on map or type here",
+      destination: "Click on map or type here",
       passengers: "Select",
       notes: "Flight, luggage, child seat...",
     },
@@ -222,7 +224,62 @@ const HERO_IMAGE =
 export default function App() {
   const [language, setLanguage] = useState<Language>("es");
   const [formState, setFormState] = useState<"idle" | "sending" | "sent">("idle");
+  const [estimatedPrice, setEstimatedPrice] = useState<string | null>(null);
+  const [routeInfo, setRouteInfo] = useState<string | null>(null);
+  
   const t = content[language];
+
+  useEffect(() => {
+    const mapContainer = document.getElementById("map");
+    if (mapContainer && !mapContainer.hasChildNodes()) {
+      const map = L.map("map").setView([43.2630, -2.9350], 13);
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      }).addTo(map);
+
+      let routingControl: any = null;
+      let waypoints: L.LatLng[] = [];
+
+      map.on("click", (e: L.LeafletMouseEvent) => {
+        waypoints.push(e.latlng);
+
+        if (waypoints.length === 1) {
+          L.marker(e.latlng).addTo(map).bindPopup("<b>Origen</b>").openPopup();
+          const originInput = document.querySelector("input[name='origin']") as HTMLInputElement;
+          if (originInput) originInput.value = `Lat: ${e.latlng.lat.toFixed(4)}, Lng: ${e.latlng.lng.toFixed(4)}`;
+        } else if (waypoints.length === 2) {
+          L.marker(e.latlng).addTo(map).bindPopup("<b>Destino</b>").openPopup();
+          const destInput = document.querySelector("input[name='destination']") as HTMLInputElement;
+          if (destInput) destInput.value = `Lat: ${e.latlng.lat.toFixed(4)}, Lng: ${e.latlng.lng.toFixed(4)}`;
+
+          if (routingControl) {
+            map.removeControl(routingControl);
+          }
+
+        // @ts-ignore
+          routingControl = L.Routing.control({
+            waypoints: waypoints,
+            routeWhileDragging: false,
+            createMarker: function() { return null; },
+          }).addTo(map);
+          
+          routingControl.on('routesfound', (e: any) => {
+            const routes = e.routes;
+            const summary = routes[0].summary;
+            const distanceKm = summary.totalDistance / 1000;
+            const price = (5 + (distanceKm * 1.80)).toFixed(2); // Tarifa base + precio por km
+
+            setEstimatedPrice(`${price} €`);
+            setRouteInfo(`${distanceKm.toFixed(1)} km aprox.`);
+          });
+
+          waypoints = [];
+        }
+      });
+    }
+  }, []);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -252,7 +309,7 @@ export default function App() {
     const body = encodeURIComponent(
       Object.entries(data)
         .map(([key, value]) => `${key}: ${String(value)}`)
-        .join("\n"),
+        .join("\n") + (estimatedPrice ? `\nPrecio estimado calculada en mapa: ${estimatedPrice}` : "")
     );
     window.location.href = `mailto:central@aeyvtc.es?subject=${subject}&body=${body}`;
     setFormState("sent");
@@ -283,7 +340,6 @@ export default function App() {
             <button
               onClick={() => setLanguage(language === "es" ? "en" : "es")}
               className="rounded-full border border-white/25 px-3.5 py-2 text-xs font-semibold tracking-wider text-white transition hover:border-white/60"
-              aria-label={language === "es" ? "Change language to English" : "Cambiar idioma a español"}
             >
               {t.language}
             </button>
@@ -339,9 +395,6 @@ export default function App() {
               </div>
             </div>
           </div>
-          <div className="absolute inset-x-0 bottom-0 border-t border-white/15 bg-[#0c1c1a]/75 backdrop-blur-md">
-            <div className="mx-auto grid max-w-7xl grid-cols-3 divide-x divide-white/15 px-5 sm:px-8 lg:px-10" />
-          </div>
         </section>
 
         <section id="servicios" className="px-5 py-24 sm:px-8 lg:px-10 lg:py-32">
@@ -375,57 +428,28 @@ export default function App() {
           </div>
         </section>
 
-        <section id="flota" className="bg-[#e9e4d9] px-5 py-8 sm:px-8 lg:px-10">
-          <div className="mx-auto grid max-w-7xl overflow-hidden bg-[#142a27] lg:grid-cols-2">
-            <div className="relative min-h-[430px] overflow-hidden lg:min-h-[650px]">
-              <img src={HERO_IMAGE} alt={t.photoAlt} className="absolute inset-0 h-full w-full object-cover object-center transition duration-700 hover:scale-[1.03]" />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#10211f]/45 to-transparent" />
-              <div className="absolute bottom-7 left-7 border border-white/25 bg-[#10211f]/70 px-4 py-2 text-xs uppercase tracking-[0.16em] text-white backdrop-blur-md">
-                Business Class
-              </div>
-            </div>
-            <div className="flex flex-col justify-center p-8 sm:p-12 lg:p-16">
-              <p className="eyebrow text-[#d2b77f]">{t.fleetEyebrow}</p>
-              <h2 className="mt-5 font-serif text-4xl leading-[1.05] text-white sm:text-5xl">{t.fleetTitle}</h2>
-              <p className="mt-7 text-base leading-7 text-white/60">{t.fleetText}</p>
-              <ul className="mt-9 grid gap-4 sm:grid-cols-2">
-                {t.fleetFeatures.map((feature) => (
-                  <li key={feature} className="flex items-center gap-3 text-sm text-white/85">
-                    <span className="grid size-5 place-items-center rounded-full border border-[#c9a96e] text-[#d8bd87]">
-                      <Icon className="size-3">
-                        <path d="m5 12 4 4L19 6" />
-                      </Icon>
-                    </span>
-                    {feature}
-                  </li>
-                ))}
-              </ul>
-              <a href="#contacto" className="mt-11 flex w-fit items-center gap-3 border-b border-[#c9a96e] pb-2 text-sm font-semibold text-white">
-                {t.discover}
-                <ArrowIcon />
-              </a>
-            </div>
-          </div>
-        </section>
-
-        <section id="proceso" className="bg-[#e9e4d9] px-5 py-24 sm:px-8 lg:px-10 lg:py-32">
+        {/* Sección de Mapa Interactivo con cálculo de rutas y precio */}
+        <section className="px-5 py-16 sm:px-8 lg:px-10 bg-[#e9e4d9]">
           <div className="mx-auto max-w-7xl">
-            <div className="text-center">
-              <p className="eyebrow">{t.processEyebrow}</p>
-              <h2 className="section-title mx-auto mt-5">{t.processTitle}</h2>
+            <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
+              <div>
+                <p className="eyebrow">Calculadora de ruta</p>
+                <h2 className="section-title mt-3">Haz clic en el mapa: Origen y Destino</h2>
+              </div>
+              {estimatedPrice && (
+                <div className="bg-[#142a27] text-white px-6 py-3 rounded-xl shadow-md flex items-center gap-4">
+                  <div>
+                    <div className="text-xs text-[#c9a96e] uppercase tracking-wider">Precio estimado</div>
+                    <div className="text-2xl font-serif">{estimatedPrice}</div>
+                  </div>
+                  {routeInfo && <div className="text-xs text-white/60 border-l border-white/20 pl-4">{routeInfo}</div>}
+                </div>
+              )}
             </div>
-            <div className="relative mt-16 grid gap-10 lg:grid-cols-3 lg:gap-16">
-              <div className="absolute left-[16%] right-[16%] top-7 hidden border-t border-dashed border-[#bcb5a6] lg:block" />
-              {t.steps.map(([number, title, text]) => (
-                <article key={number} className="relative text-center">
-                  <span className="relative z-10 mx-auto grid size-14 place-items-center rounded-full border border-[#bea263] bg-[#e9e4d9] font-serif text-lg text-[#8c713a]">
-                    {number}
-                  </span>
-                  <h3 className="mt-7 font-serif text-2xl">{title}</h3>
-                  <p className="mx-auto mt-3 max-w-xs text-sm leading-6 text-[#65706d]">{text}</p>
-                </article>
-              ))}
-            </div>
+            <div 
+              id="map" 
+              className="h-[480px] w-full rounded-2xl shadow-lg border border-[#d9d4c8]"
+            />
           </div>
         </section>
 
@@ -435,18 +459,6 @@ export default function App() {
               <p className="eyebrow text-[#d2b77f]">{t.formEyebrow}</p>
               <h2 className="mt-5 max-w-md font-serif text-5xl leading-[1.02] text-white sm:text-6xl">{t.formTitle}</h2>
               <p className="mt-7 max-w-md leading-7 text-white/60">{t.formText}</p>
-              <div className="mt-10 flex items-center gap-4 border-t border-white/15 pt-8">
-                <span className="grid size-11 place-items-center rounded-full border border-white/20 text-[#d2b77f]">
-                  <Icon>
-                    <path d="M4 5h16v14H4z" />
-                    <path d="m4 7 8 6 8-6" />
-                  </Icon>
-                </span>
-                <div>
-                  <div className="text-xs uppercase tracking-widest text-white/40">Central de reservas</div>
-                  <a href="mailto:central@aeyvtc.es" className="mt-1 block text-sm text-white">central@aeyvtc.es</a>
-                </div>
-              </div>
             </div>
             <div className="bg-[#f5f2eb] p-6 sm:p-9 lg:p-11">
               {formState === "sent" ? (
@@ -495,51 +507,6 @@ export default function App() {
           </div>
         </section>
       </main>
-
-      <footer className="bg-[#091715] px-5 pb-8 pt-16 text-white sm:px-8 lg:px-10">
-        <div className="mx-auto max-w-7xl">
-          <div className="grid gap-12 border-b border-white/10 pb-14 sm:grid-cols-2 lg:grid-cols-[1.5fr_0.7fr_0.8fr]">
-            <div>
-              <div className="flex items-center gap-3">
-                <span className="grid size-9 place-items-center rounded-full border border-[#c9a96e] font-serif text-xs tracking-tight text-[#d9bf8b]">ΑΕΥ</span>
-                <span className="font-serif text-xl tracking-[0.2em]">A E Y</span>
-              </div>
-              <p className="mt-6 max-w-sm text-sm leading-6 text-white/45">{t.footerText}</p>
-            </div>
-            <div>
-              <h3 className="text-xs font-semibold uppercase tracking-widest text-[#d2b77f]">{t.quickLinks}</h3>
-              <div className="mt-5 flex flex-col gap-3">
-                {t.nav.slice(0, 3).map((item, index) => <a key={item} href={`#${t.navIds[index]}`} className="text-sm text-white/55 hover:text-white">{item}</a>)}
-              </div>
-            </div>
-            <div>
-              <h3 className="text-xs font-semibold uppercase tracking-widest text-[#d2b77f]">{t.contact}</h3>
-              <div className="mt-5 space-y-3 text-sm text-white/55">
-                <a className="block hover:text-white" href="tel:+34600000000">+34 600 000 000</a>
-                <a className="block hover:text-white" href="mailto:central@aeyvtc.es">central@aeyvtc.es</a>
-                <p>Madrid, España</p>
-              </div>
-            </div>
-          </div>
-          <div className="flex flex-col gap-4 pt-7 text-xs text-white/35 sm:flex-row sm:items-center sm:justify-between">
-            <p>© {new Date().getFullYear()} A E Y VTC. {t.rights}</p>
-            <div className="flex gap-5"><a href="#">{t.legal}</a><a href="#">{t.privacyLink}</a><a href="#">{t.cookies}</a></div>
-          </div>
-        </div>
-      </footer>
-
-      <a
-        href={WHATSAPP_URL}
-        target="_blank"
-        rel="noreferrer"
-        aria-label={t.whatsapp}
-        className="fixed bottom-5 right-5 z-40 grid size-14 place-items-center rounded-full bg-[#25d366] text-white shadow-[0_10px_30px_rgba(0,0,0,0.22)] transition hover:scale-105"
-      >
-        <Icon className="size-7">
-          <path d="M20.5 11.7a8.4 8.4 0 0 1-12.4 7.4L3.5 20.5l1.4-4.4A8.5 8.5 0 1 1 20.5 11.7Z" />
-          <path d="M8.4 7.5c.2-.4.4-.4.7-.4h.5c.2 0 .3.1.4.4l.7 1.7c.1.3 0 .5-.2.7l-.6.7c-.2.2-.1.4 0 .6.6 1.2 1.6 2.1 2.8 2.7.2.1.4.1.6-.1l.8-1c.2-.2.4-.3.7-.2l1.8.8c.3.1.4.3.4.5 0 .3-.2 1.5-.9 2.1-.6.6-1.5.8-2.4.6-1.1-.3-2.5-.8-4.3-2.4-2-1.8-3.2-4-3.3-5.2 0-.6.1-1.1.4-1.5Z" />
-        </Icon>
-      </a>
     </div>
   );
 }
